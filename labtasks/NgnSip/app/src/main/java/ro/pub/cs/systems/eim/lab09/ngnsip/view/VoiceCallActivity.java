@@ -11,6 +11,9 @@ import android.widget.EditText;
 import android.widget.TextView;
 
 import org.doubango.ngn.NgnEngine;
+import org.doubango.ngn.events.NgnInviteEventArgs;
+import org.doubango.ngn.events.NgnRegistrationEventArgs;
+import org.doubango.ngn.media.NgnMediaType;
 import org.doubango.ngn.services.INgnConfigurationService;
 import org.doubango.ngn.services.INgnSipService;
 import org.doubango.ngn.sip.NgnAVSession;
@@ -62,8 +65,13 @@ public class VoiceCallActivity extends AppCompatActivity {
         public void onClick(View view) {
             // TODO exercise 5a
             // - set the NGN engine parameters via the configureStack() method
+            configureStack();
             // - start the NGN engine and register the activity to the SIP service
+            if (!startNgnEngine()) {
+                return;
+            }
             // invoke the startNgnEngine() and registerSipService() methods respectively
+            registerSipService();
         }
 
     }
@@ -75,6 +83,7 @@ public class VoiceCallActivity extends AppCompatActivity {
         public void onClick(View view) {
             // TODO exercise 5b
             // unregister the SIP service by invoking the unregisterSipService() method
+            unregisterSipService();
         }
 
     }
@@ -97,10 +106,19 @@ public class VoiceCallActivity extends AppCompatActivity {
             // TODO exercise 7a
             // - create a NgnAVSession by invoking the static method createOutgoingSession
             // passing as arguments the SipStack and the media type (NgnMediaType.Audio)
+            ngnAVSession = NgnAVSession.createOutgoingSession(
+                NgnEngine.getInstance().getSipService().getSipStack(),
+                NgnMediaType.Audio
+            );
             // - if the call can be made, set the callStatusTextView to "calling" and log the information
             // - if the call cannot be made, log the information accordingly
             // hint: use the makeCall() method of the NgnAVSession instance
-
+            if (ngnAVSession.makeCall(validUri)) {
+                callStatusTextView.setText(getResources().getString(R.string.calling));
+                Log.d(Constants.TAG, "Call succeeded");
+            } else {
+                Log.d(Constants.TAG, "Call failed");
+            }
         }
     }
 
@@ -113,7 +131,10 @@ public class VoiceCallActivity extends AppCompatActivity {
             // TODO exercise 7b
             // this method should check whether the NgnAVSession was previously created
             // hint: use the hangUpCall() method of the NgnAVSession instance
-
+            if (ngnAVSession != null) {
+                ngnAVSession.hangUpCall();
+                Log.d(Constants.TAG, "Hang up");
+            }
         }
 
     }
@@ -238,16 +259,22 @@ public class VoiceCallActivity extends AppCompatActivity {
 
         // TODO exercise 6a
         // - create a RegistrationBroadcastReceiver instance
+        registrationBroadcastReceiver = new RegistrationBroadcastReceiver(registrationStatusTextView);
         // - create an IntentFilter instance for NgnRegistrationEventArgs.ACTION_REGISTRATION_EVENT action
+        registrationIntentFilter = new IntentFilter();
         // - register the broadcast intent with the intent filter
-
+        registrationIntentFilter.addAction(NgnRegistrationEventArgs.ACTION_REGISTRATION_EVENT);
+        registerReceiver(registrationBroadcastReceiver, registrationIntentFilter);
     }
 
     public void disableRegistrationStateBroadcastReceiver() {
 
         // TODO exercise 6b
         // unregister the RegistrationBroadcastReceiver instance
-
+        if (registrationBroadcastReceiver != null) {
+            unregisterReceiver(registrationBroadcastReceiver);
+            registrationBroadcastReceiver = null;
+        }
     }
 
     public void enableVoiceCallBroadcastReceiver() {
@@ -256,13 +283,20 @@ public class VoiceCallActivity extends AppCompatActivity {
         // - create a VoiceCallBroadcastReceiver instance
         // - create an IntentFilter instance for NgnInviteEventArgs.ACTION_INVITE_EVENT action
         // - register the broadcast receiver with the intent filter
-
+        voiceCallBroadcastReceiver = new VoiceCallBroadcastReceiver(SIPAddressEditText, callStatusTextView);
+        voiceCallIntentFilter = new IntentFilter();
+        voiceCallIntentFilter.addAction(NgnInviteEventArgs.ACTION_INVITE_EVENT);
+        registerReceiver(voiceCallBroadcastReceiver, voiceCallIntentFilter);
     }
 
     public void disableVoiceCallBroadcastReceiver() {
 
         // TODO exercise 8b
         // unregister the VoiceCallBroadcastReceiver instance
+        if (voiceCallBroadcastReceiver != null) {
+            unregisterReceiver(voiceCallBroadcastReceiver);
+            voiceCallBroadcastReceiver = null;
+        }
 
     }
 
